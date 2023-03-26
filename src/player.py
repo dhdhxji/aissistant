@@ -17,7 +17,7 @@ class Player(reactivex.Observer):
         
         
     def play_chunk(self, stream) -> None:
-        self.stream.write(stream[0])
+        self.stream.write(stream[0].tobytes())
     
     
     def deinit(self):

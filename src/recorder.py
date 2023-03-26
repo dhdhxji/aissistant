@@ -1,5 +1,16 @@
 import reactivex as rx
 import pyaudio
+import numpy as np
+
+audio_to_numpy_format_map = {
+    pyaudio.paFloat32: np.float32,
+    pyaudio.paInt32: np.int32,
+    pyaudio.paInt24: None,
+    pyaudio.paInt16: np.int16,
+    pyaudio.paInt8: np.int8,
+    pyaudio.paUInt8: np.uint8,
+    pyaudio.paCustomFormat: None
+}
 
 class Recorder(rx.Subject):
     def __init__(self,
@@ -38,5 +49,9 @@ class Recorder(rx.Subject):
         _ = frameCount
         _ = statusFlags
         
-        self.on_next((buffer, timeInfo))
+        npbuffer = np.frombuffer(buffer, audio_to_numpy_format_map[self.format])
+        # To take into accout the multi-channel audio
+        npbuffer = npbuffer.reshape(self.channels, -1)
+        
+        self.on_next((npbuffer, timeInfo))
         return None, 0

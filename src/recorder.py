@@ -39,4 +39,4 @@ class Recorder(rx.Subject):
         _ = statusFlags
         
         self.on_next((buffer, timeInfo))
-        return None, pyaudio.paContinue
+        return None, 0

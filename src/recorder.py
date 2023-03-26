@@ -1,12 +1,14 @@
 import reactivex as rx
 import pyaudio
 
-class Recorder(rx.Observable):
+class Recorder(rx.Subject):
     def __init__(self,
                  chunk_size_ms=200,
                  format=pyaudio.paInt16, 
                  channels=1,
                  rate=44100):
+        super().__init__()
+        
         self.chunk_size_ms = chunk_size_ms
         self.format = format
         self.channels = channels
@@ -29,8 +31,12 @@ class Recorder(rx.Observable):
         self.stream.stop_stream()
         self.stream.close()
         self.audio.terminate()
+        
+        self.on_completed()
 
     def _on_audio_chunk(self, buffer, frameCount, timeInfo, statusFlags):
-        print(f'New audio chunk with {frameCount} frames')
+        _ = frameCount
+        _ = statusFlags
         
-        return None, 0
+        self.on_next((buffer, timeInfo))
+        return None, pyaudio.paContinue

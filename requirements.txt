@@ -2,3 +2,4 @@ openai-whisper
 openai
 reactivex
 pyaudio
+PyAudioWPatch

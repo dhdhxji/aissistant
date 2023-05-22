@@ -4,7 +4,12 @@ from reactivex.scheduler import ThreadPoolScheduler
 import speech_recognition as sr
 from wasapi_helpers import *
 from time import time
+import openai
+import os
+import logging as log
 
+
+log.basicConfig(level=log.INFO)
 
 #   Hack to swap the pyauio library inside spechrecognition 
 # to handle WAPI loopback devices
@@ -29,11 +34,15 @@ WHISPER_MODEL = 'base'
 r = sr.Recognizer()
 
 # Just to load the model
-print('Loading model...')
+log.info('Loading model...')
 r.recognize_whisper(sr.AudioData(b'\0', 16000, 2), language="english", model=WHISPER_MODEL)
-print('...done!')
+log.info('...done!')
 
 
+
+# Init the gpt
+openai.api_key = os.getenv("OPENAI_API_KEY")
+setup_prompt = ''
 
 
 def get_speech_sound():
@@ -41,7 +50,7 @@ def get_speech_sound():
     with sr.Microphone() as source:
         r.adjust_for_ambient_noise(source)
         while True:
-            print('Im listening')
+            log.info('Im listening')
             audio = r.listen(source)
             yield audio
 
@@ -49,14 +58,23 @@ def get_speech_sound():
 def transcribe_speech_sound(audio):
     t = time()
     text = r.recognize_whisper(audio, language="english", model=WHISPER_MODEL)
-    print(f'[{time() - t}s]: {text}')
-    return {
-        'transcription': text
-    }
+    log.info(f'[{time() - t}s]: {text}')
+    
+    return {'transcription': text}
 
 
 def ask_gpt(request):
-    return request
+    completion = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "user", 
+             "content": f"{request}"}
+        ]
+    )
+    
+    log.info(completion)
+    
+    return completion.choices[0].message.content
 
 
 def elevenlabs_synthesis(speech):

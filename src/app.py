@@ -7,6 +7,8 @@ from elevenlabs import generate, play
 from time import time
 import openai
 import os
+import json
+from utils import *
 import logging as log
 
 
@@ -81,6 +83,33 @@ def ask_gpt(request):
     
     return completion.choices[0].message.content
 
+def process_command(gpt_response):
+    log.info(gpt_response)
+    
+    try:
+        object = json.loads(gpt_response)
+    except Exception as e:
+        log.warning(f"Can not parse GPT response: {gpt_response}, exception {e.with_traceback()}")
+        return "Error happened"
+        
+    if 'payload' in object.keys():
+        result = exec_command(object['payload'])
+        result['answer'] = object['answer']
+    # For test purposes I assusme that it always requires interpreteation
+    return json.dumps(result)
+        
+    
+def gpt_result_interpretation(command_result):
+    completion = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "user", 
+             "content": f'Fullfill the gaps in "answer" field of this message {command_result}'}
+        ]
+    )
+    
+    return completion.choices[0].message.content
+
 
 def elevenlabs_synthesis(speech):
     log.info(speech)
@@ -106,7 +135,11 @@ if __name__ == '__main__':
         ops.observe_on(sched),
         ops.map(ask_gpt),
         ops.observe_on(sched),
-        ops.map(elevenlabs_synthesis)
+        ops.map(process_command),
+        ops.observe_on(sched),
+        ops.map(gpt_result_interpretation),
+        ops.observe_on(sched),
+        ops.map(elevenlabs_synthesis),
     ).run()
     
     sched.executor.shutdown()

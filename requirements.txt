@@ -3,3 +3,4 @@ openai
 reactivex
 pyaudio
 PyAudioWPatch
+elevenlabs

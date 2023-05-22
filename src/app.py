@@ -2,7 +2,8 @@ import reactivex as rx
 import reactivex.operators as ops
 from reactivex.scheduler import ThreadPoolScheduler
 import speech_recognition as sr
-from wasapi_helpers import *
+#from wasapi_helpers import *
+from elevenlabs import generate, play
 from time import time
 import openai
 import os
@@ -43,13 +44,17 @@ log.info('...done!')
 # Init the gpt
 openai.api_key = os.getenv("OPENAI_API_KEY")
 setup_prompt = ''
+with open("src/setup_prompt.txt") as f:
+    setup_prompt = f.read()
+
+log.info(f'setup prompt is: {setup_prompt}')
 
 
 def get_speech_sound():
     #with sr.Microphone(device_index=sys_def_loopback_dev['index']) as source:
     with sr.Microphone() as source:
-        r.adjust_for_ambient_noise(source)
         while True:
+            r.adjust_for_ambient_noise(source)
             log.info('Im listening')
             audio = r.listen(source)
             yield audio
@@ -68,21 +73,27 @@ def ask_gpt(request):
         model="gpt-3.5-turbo",
         messages=[
             {"role": "user", 
-             "content": f"{request}"}
+             "content": f"{setup_prompt}\n\nThe request is: {request}"}
         ]
     )
     
-    log.info(completion)
+    #log.info(completion)
     
     return completion.choices[0].message.content
 
 
 def elevenlabs_synthesis(speech):
+    log.info(speech)
+    
+    audio = generate(
+        text=speech,
+        voice="Bella",
+        model="eleven_monolingual_v1"
+    )
+    
+    play(audio)
+    
     return speech
-
-
-def show_transcription(transcription):
-    print(f'{transcription}')
 
 
 if __name__ == '__main__':    
@@ -94,8 +105,6 @@ if __name__ == '__main__':
         ops.map(transcribe_speech_sound),
         ops.observe_on(sched),
         ops.map(ask_gpt),
-        ops.observe_on(sched),
-        ops.map(show_transcription),
         ops.observe_on(sched),
         ops.map(elevenlabs_synthesis)
     ).run()

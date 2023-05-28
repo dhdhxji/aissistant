@@ -132,6 +132,7 @@ if __name__ == '__main__':
     source.pipe(
         ops.observe_on(sched),
         ops.map(transcribe_speech_sound),
+        ops.filter(lambda x: x['transcription'].split()[0].lower().startswith('home')),
         ops.observe_on(sched),
         ops.map(ask_gpt),
         ops.observe_on(sched),

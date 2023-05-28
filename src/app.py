@@ -45,11 +45,42 @@ log.info('...done!')
 
 # Init the gpt
 openai.api_key = os.getenv("OPENAI_API_KEY")
-setup_prompt = ''
-with open("src/setup_prompt.txt") as f:
-    setup_prompt = f.read()
+setup_prompt = """You are a smart home assistant which takes the user input, and produces the response in json format.
+The communication is done in few steps:
+1. The application gives a user command
+2. You should translate it to the machine readable json formatted command, which will be executed
 
-log.info(f'setup prompt is: {setup_prompt}')
+The response can contain the "answer" field with response to a human's request (like Im a processing your request of temperature reading) and a "payload" field which contains the specific message to a smart home device.
+In case of the person is asking something not related to smart home or you can not fulfil the request, do not add the "payload" field and feel free to answer the "answer" field
+The only output app is expecting is the json, you can put any notes as it not breaks the formatting
+
+There is possible device messages:
+{
+    "type": "api",
+    "url": "http://worldtimeapi.org/api/timezone/Europe/Kyiv"
+},
+{
+    "type": "mqtt",
+    "topic": "/sensors/dht11/temp"
+}
+
+There are devices available:
+dht11 temperature and humidity sensor, placed in home, it exposes the temperature and humidity by /sensors/dht11/temp (degrees of celcius) and /sensors/dht11/humidity (percents) MQTT topics respectively
+
+Useful links for api command: 
+- Get current date and time info: http://worldtimeapi.org/api/timezone/Europe/Kyiv 
+- Get my ip address: https://api.ipify.org?format=json
+"""
+# with open("src/setup_prompt.txt") as f:
+#     setup_prompt = f.read()
+
+complete_prompt = """
+You are a smart home assistant
+Here is the output of some app, which contains the user request, the command to fetch the data for that request and the response for this command
+Please give the response to user based on this data
+
+
+"""
 
 
 def get_speech_sound():
@@ -61,12 +92,11 @@ def get_speech_sound():
             audio = r.listen(source)
             yield audio
 
-
 def transcribe_speech_sound(audio):
     t = time()
     text = r.recognize_whisper(audio, language="english", model=WHISPER_MODEL)
-    log.info(f'[{time() - t}s]: {text}')
     
+    log.info(f'[{time() - t}s] transcription: {text}')
     return {'transcription': text}
 
 
@@ -79,8 +109,7 @@ def ask_gpt(request):
         ]
     )
     
-    #log.info(completion)
-    
+    log.info(f'GPT answer: {completion.choices[0].message.content}')
     return completion.choices[0].message.content
 
 def process_command(gpt_response):
@@ -95,6 +124,7 @@ def process_command(gpt_response):
     if 'payload' in object.keys():
         result = exec_command(object['payload'])
         result['answer'] = object['answer']
+        
     # For test purposes I assusme that it always requires interpreteation
     return json.dumps(result)
         
@@ -103,11 +133,14 @@ def gpt_result_interpretation(command_result):
     completion = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[
-            {"role": "user", 
-             "content": f'Fullfill the gaps in "answer" field of this message {command_result}'}
+            {
+                "role": "user", 
+                "content": complete_prompt + command_result
+            }
         ]
     )
     
+    log.info(f'Interpretation result: {completion.choices[0].message.content}')
     return completion.choices[0].message.content
 
 
